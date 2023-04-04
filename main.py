@@ -11,7 +11,7 @@ def update():
 
 
 # Inserting data from the csvs to the databases
-def InsertCSVs():
+def insertCSVs():
 	with open("13 Databases data (1) - Classes.csv", "r") as file:
 		for row in csv.reader(file):
 			c.execute("""INSERT INTO Classes (ID,Name,YearLevel,TeacherID) 
@@ -38,21 +38,6 @@ def InsertCSVs():
 						VALUES (?, ?, ?);""", (row[0], row[1], row[2]))
 
 
-def check_input(text, type, rangeend):
-	inp = input(text).strip()
-	if inp == backkey:
-		return backkey
-	if type == "int":
-		try:
-			inp = int(inp)
-			if inp in range(1, rangeend):
-				return inp
-			else:
-				return False
-		except:
-			return False
-
-
 connect = sqlite3.connect('Database.db')
 c = connect.cursor()
 
@@ -72,7 +57,7 @@ if reset:
 		Name TEXT NOT NULL,
 		YearLevel INTEGER NOT NULL,
 		TeacherID INTEGER NOT NULL,
-		FOREIGN KEY (TeacherID) REFERENCES Teacher(ID)
+		FOREIGN KEY (TeacherID) REFERENCES Teachers(ID)
 	);
 	""")
 	c.execute("""
@@ -87,12 +72,13 @@ if reset:
 	CREATE TABLE StudentsAndClasses (
 		StudentID INTEGER NOT NULL,
 		ClassID INTEGER NOT NULL,
-		FOREIGN KEY (StudentID) REFERENCES Student(ID),
-		FOREIGN KEY (ClassID) REFERENCES Class(ID)
+		FOREIGN KEY (StudentID) REFERENCES Students(ID),
+		FOREIGN KEY (ClassID) REFERENCES Classes(ID)
 	);
 	""")
 	c.execute("""
 	CREATE TABLE StudentsWithTimetables (
+		StudentID INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 		first_name TEXT NOT NULL,
 		last_name TEXT NOT NULL,
 		YearLevel INTEGER NOT NULL,
@@ -101,7 +87,8 @@ if reset:
 		Subject3 TEXT NOT NULL,
 		Subject4 TEXT NOT NULL,
 		Subject5 TEXT NOT NULL,
-		Subject6 TEXT NOT NULL
+		Subject6 TEXT NOT NULL,
+		FOREIGN KEY (StudentID) REFERENCES Students(ID)
 	);
 	""")
 	c.execute("""
@@ -111,11 +98,12 @@ if reset:
 		LastName TEXT NOT NULL
 	);
 	""")
-	InsertCSVs()
+	insertCSVs()
 	connect.commit()
 
 c.execute("""SELECT name FROM sqlite_schema WHERE type ='table' AND name NOT LIKE 'sqlite_%';""")
 tables = c.fetchall()
+
 
 def main():
 	while True:
@@ -148,16 +136,27 @@ def search():
 			selected = input("hey lets enter some specific columns you want to search stuff in, eg. 1,2,3: ")
 			columns = [columnDict[int(i)] for i in selected.split(",")]
 			print(', '.join(columns))
-			print(columns[1].split('.', 1)[0])
+			selectedtables = [column.split('.', 1)[0] for column in columns]
+			print(selectedtables)
 			break
 		except ValueError:
 			pass
 		except KeyError:
 			pass
+	"""joinings = ""
+	for table in set(selectedtables):
+		joinings += """
+
+	orderings = "ORDER BY"
+	for column in columns:
+		orderings += f" {column} ASC,"
+	orderings = orderings[:-1]
+
 	c.execute(f"""SELECT {', '.join(columns)}
-			FROM {columns[1].split('.', 1)[0]}
-			INNER JOIN People ON People.ID = Relations.PersonID
-			INNER JOIN Trees ON Trees.ID = Relations.TreeID;
+			FROM (StudentsAndClasses)
+			INNER JOIN Students ON Students.ID = StudentsAndClasses.StudentID
+			INNER JOIN Classes ON Classes.ID = StudentsAndClasses.ClassID
+			{orderings};
 			""")
 	print("\n" + tab.tabulate(c.fetchall(), selected, tablefmt='simple'))
 
