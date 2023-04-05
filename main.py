@@ -108,6 +108,7 @@ tables = c.fetchall()
 def main():
 	while True:
 		search()
+	while True:
 		action = input("hey do you want to search something (1) or add something (2): ")
 		try:
 			if int(action) == 1:
@@ -143,22 +144,30 @@ def search():
 			pass
 		except KeyError:
 			pass
-	"""joinings = ""
-	for table in set(selectedtables):
+	joinings = ""
+	if 'Students' in selectedtables and 'Classes' in selectedtables:
 		joinings += """
+		FROM (StudentsAndClasses)
+		INNER JOIN Students ON Students.ID = StudentsAndClasses.StudentID
+		INNER JOIN Classes ON Classes.ID = StudentsAndClasses.ClassID"""
+	if 'Teachers' in selectedtables and 'Classes' in selectedtables:
+		joinings += """
+		FROM (Classes)
+		INNER JOIN Teachers ON Teachers.ID = Classes.TeacherID"""
 
 	orderings = "ORDER BY"
 	for column in columns:
 		orderings += f" {column} ASC,"
 	orderings = orderings[:-1]
-
-	c.execute(f"""SELECT {', '.join(columns)}
-			FROM (StudentsAndClasses)
-			INNER JOIN Students ON Students.ID = StudentsAndClasses.StudentID
-			INNER JOIN Classes ON Classes.ID = StudentsAndClasses.ClassID
+	print(f"""SELECT {', '.join(columns)}
+			{joinings}
 			{orderings};
 			""")
-	print("\n" + tab.tabulate(c.fetchall(), selected, tablefmt='simple'))
+	try:
+		c.execute(f"""SELECT {', '.join(columns)} {joinings} {orderings};""")
+		print("\n" + tab.tabulate(c.fetchall(), columns, tablefmt='simple'))
+	except sqlite3.OperationalError:
+		print("hey either too many relationships or theres no direct relationship")
 
 
 def add():
