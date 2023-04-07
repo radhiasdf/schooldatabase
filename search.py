@@ -19,6 +19,8 @@ def askFields(tables):
 			pass
 		except KeyError:
 			pass
+		except IndexError:
+			pass
 
 	printAndFilter(selectedTables)
 
