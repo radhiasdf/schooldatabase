@@ -10,7 +10,7 @@ def askFields(tables):
 	# ask for which fields to display, and parse input. try check for valid column numbers
 	while True:
 		try:
-			inp = input("enter table(s), eg. 2,1 for every student's classes:")
+			inp = input("Enter table(s), eg. 2,1 for every student's classes:")
 			if inp == backkey:
 				return backkey
 			selectedTables = [tables[int(i) - 1] for i in inp.split(',')]
@@ -62,15 +62,15 @@ def printAndFilter(selectedTables):
 			display = c.fetchall()
 			print("\n" + tab.tabulate(display, selectedColumns, tablefmt='simple'))
 			if len(selectedTables) > 1:
-				print("ok so this is joined up RELATIONSHIP display")
+				print("Ok so this is joined up RELATIONSHIP display")
 
-			filters = inp = input(f"search for something if you want: ")
+			filters = inp = input(f"Search for something if you want: ")
 			if inp == backkey:
 				break
 			filters = "WHERE " + ' '.join([f"{column} LIKE '%{filters}%' OR" for column in selectedColumns])[:-3]
 
 		except sqlite3.OperationalError as e:
-			print(f"hey error of {e}")
+			print(f"Hey error of {e}")
 			if 'no such column' in str(e):
-				print("there isn't a direct relationship between teacher and student")
+				print("There isn't a direct relationship between teacher and student")
 			break

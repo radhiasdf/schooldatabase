@@ -3,7 +3,7 @@ import search
 
 
 def printEnterBackKey():
-	print(f"-Enter '{backkey}' to go back-")
+	print(f"(Enter '{backkey}' to go back)")
 
 
 # This sets the thing
@@ -60,18 +60,28 @@ def CSVtoDatabase(filename, tablename):
 
 
 def printTable(table):
-	c.execute(f"SELECT * FROM {table};")
-	display = c.fetchall()
-	c.execute(f"PRAGMA table_info({table});")
-	headers = [column[1] for column in c.fetchall()]
-	print("\n" + tab.tabulate(display, headers, tablefmt='simple'))
+	# for students and classes the user needs to see the names and stuff, not just a bunch of IDs
+	if table == 'StudentsAndClasses':
+		headers = """sc.ID,sc.StudentID,Students.first_name,Students.last_name,sc.ClassID,
+		Classes.Name,Classes.YearLevel"""
+		c.execute(f"""SELECT {headers}
+		FROM {table} sc JOIN Students ON Students.ID = sc.StudentID
+		JOIN Classes ON sc.ClassID = Classes.ID;""")
+		print("\n" + tab.tabulate(c.fetchall(), headers.split(','), tablefmt='simple'))
+	else:
+		c.execute(f"SELECT * FROM {table};")
+		display = c.fetchall()
+		c.execute(f"PRAGMA table_info({table});")
+		headers = [column[1] for column in c.fetchall()]
+		print("\n" + tab.tabulate(display, headers, tablefmt='simple'))
+
 
 def modify():
 	for i, table in enumerate(tables):
 		print(f"{i+1}. {table}")
 	while True:
 		try:
-			inp = input("ok which table do you want to modify (enter number): ")
+			inp = input("Ok which table do you want to modify (enter number): ")
 			if inp == backkey:
 				return backkey
 			table = tables[int(inp) - 1]
@@ -84,7 +94,7 @@ def modify():
 	printTable(table)
 
 	while True:
-		action = input("ok now do u want to edit (1), add (2), or remove (3): ")
+		action = input("Now do you want to edit (1), add (2), or remove (3): ")
 		if action == backkey:
 			break
 		while True:
@@ -101,7 +111,7 @@ def modify():
 				break
 
 def edit(table):
-	row = input("enter which row to edit: ")
+	row = input("Enter which row to edit: ")
 	if row == backkey:
 		return backkey
 	try:
@@ -112,31 +122,43 @@ def edit(table):
 
 		c.execute(f"SELECT * FROM {table} WHERE ID = {row};")
 		print(', '.join(str(cell) for i, cell in enumerate(c.fetchall()[0]) if columnsInfo[i][5] != 1))
-		newData = input(f"Enter new data in the format {', '.join(headersNoID)}:\n").split(',')
-		columnToValue = ''.join([f"{header} = '{newData[i]}', " for i, header in enumerate(headersNoID)])[:-2]
+	except IndexError:
+		print("Row doesn't exist")
+		return
+	except sqlite3.OperationalError:
+		print("Use the IDs")
+		return
+	try:
+		while True:
+			newData = input(f"Enter new data in the format {', '.join(headersNoID)}:\n").split(',')
+			if integrityCheck(columnsInfo, newData):
+				break
 
-		query = f"UPDATE {table} SET {columnToValue} WHERE ID = {row};"
-		c.execute(query)
+		columnToValue = ''.join([f"{header} = '{newData[i]}', " for i, header in enumerate(headersNoID)])[:-2]
+		c.execute(f"UPDATE {table} SET {columnToValue} WHERE ID = {row};")
 		printTable(table)
 	except IndexError:
-		print("row doesnt exist")
+		print("Number of columns doesn't match")
+
+
 
 def add(table):
 	c.execute(f"PRAGMA table_info({table});")
 	columnsInfo = c.fetchall()
-	headers = [column[1] for column in columnsInfo]
 	# it doesn't ask the user to put data for primary autoincrementing fields
-	headersNoID = [data for i, data in enumerate(headers) if columnsInfo[i][5] != 1]
+	headersNoID = [column[1] for i, column in enumerate(columnsInfo) if columnsInfo[i][5] != 1]
 
 	while True:
-		inp = input(f"hey now enter the things exactly like {','.join(headersNoID)}: ")
+		inp = input(f"Enter the things exactly like {','.join(headersNoID)}: ")
 		if inp == backkey:
 			return backkey
 		data = inp.split(',')
 		if len(data) == len(headersNoID):
-			break
+			if integrityCheck(columnsInfo, data):
+				break
 		else:
-			print("hey number of columns doesnt match")
+			print("Number of columns doesn't match")
+
 
 	query = f"""INSERT INTO {table} ({','.join(headersNoID)}) 
 							VALUES ({('?,' * len(headersNoID))[:-1]});"""
@@ -145,8 +167,22 @@ def add(table):
 	printTable(table)
 
 
+def integrityCheck(columns_info, inp):
+	# If column isn't the primary key
+	columns_info = [columnInfo for columnInfo in columns_info if columnInfo[5] != 1]
+	for i, columnInfo in enumerate(columns_info):
+		if columnInfo[2] == "INTEGER":
+			try:
+				int(inp[i])
+			except ValueError:
+				print("Put in numbers please")
+				return False
+	return True
+
+
+
 def remove(table):
-	row = input("enter the row number u want to remove: ")
+	row = input("Enter the ID for the row you want to remove: ")
 	if row == backkey:
 		return backkey
 	try:
@@ -156,9 +192,9 @@ def remove(table):
 		printTable(table)
 		print(f"{removedRow} has been removed")
 	except sqlite3.OperationalError:
-		print("dude numbers")
+		print("Use the IDs")
 	except IndexError:
-		print("row doesnt exist")
+		print("Row doesn't exist")
 
 
 if reset:
@@ -174,7 +210,7 @@ tables = [table[0] for table in c.fetchall()]
 
 while True:
 	printEnterBackKey()
-	action = input("hey do u want to search (1) or modify (2): ")
+	action = input("Do you want to search (1) or modify (2): ")
 	if action == backkey:
 		break
 	while True:
