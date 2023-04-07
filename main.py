@@ -1,12 +1,5 @@
-import sqlite3
-import csv
-import tabulate as tab
-
-reset = True
-
-backkey = "<"
-connect = sqlite3.connect('Database.db')
-c = connect.cursor()
+from constants import *
+import search
 
 
 def printEnterBackKey():
@@ -62,7 +55,6 @@ def CSVtoDatabase(filename, tablename):
 	with open(filename, "r") as file:
 		columnNames = ','.join(next(csv.reader(file)))
 		for i, row in enumerate(csv.reader(file)):
-			if i > 0:
 				c.execute(f"""INSERT INTO {tablename} ({columnNames}) 
 							VALUES ({('?,' * len(row))[:-1]});""", tuple(row))
 
@@ -73,77 +65,6 @@ def printTable(table):
 	c.execute(f"PRAGMA table_info({table});")
 	headers = [column[1] for column in c.fetchall()]
 	print("\n" + tab.tabulate(display, headers, tablefmt='simple'))
-
-# the user's chosen fields are from how many different tables, removes duplicates
-def getSelectedTables(columns):
-	return list(set([column.split('.', 1)[0] for column in columns]))
-
-
-def search():
-	# printing out available columns across all tables, with numbers assigned for each column
-	columnID = 0
-	columnDict = {}
-	for i, table in enumerate(tables):
-		string = ""
-		c.execute(f"PRAGMA table_info({table});")
-		for columnInfo in c.fetchall():
-			columnID += 1
-			string += f"{columnInfo[1]} ({columnID}), "
-			columnDict[columnID] = f"{table}.{columnInfo[1]}"
-		print(f"{table}: {string}")
-
-	# ask for which fields to display, and parse input. try check for valid column numbers
-	while True:
-		try:
-			selected = inp = input("enter some specific columns in order of importance, "
-								   "eg. 5,6,7,1,2,3 for list of students based on classes: ")
-			if inp == backkey:
-				return backkey
-			columns = [columnDict[int(i)] for i in selected.split(",")]
-			selectedtables = getSelectedTables(columns)
-			break
-		except ValueError:
-			pass
-		except KeyError:
-			pass
-
-	# translating into sql and printing it out
-	fromTable = ""
-	joinings = ""
-	if 'Students' in selectedtables and 'Classes' in selectedtables:
-		fromTable = "FROM StudentsAndClasses"
-		joinings += """
-		INNER JOIN Students ON Students.ID = StudentsAndClasses.StudentID
-		INNER JOIN Classes ON Classes.ID = StudentsAndClasses.ClassID"""
-
-	if 'Teachers' in selectedtables and 'Classes' in selectedtables:
-		fromTable = "FROM Classes"
-		joinings += """
-		INNER JOIN Teachers ON Teachers.ID = Classes.TeacherID"""
-	if fromTable == "":
-		fromTable = f"FROM {selectedtables[0]}"
-
-
-	#
-
-
-	orderBy = "ORDER BY"
-	for column in columns:
-		orderBy += f" {column} ASC,"
-	orderBy = orderBy[:-1]
-	query = f"""SELECT {', '.join(columns)} {fromTable} {joinings} {orderBy};"""
-
-	try:
-		c.execute(query)
-		print("\n" + tab.tabulate(c.fetchall(), columns, tablefmt='simple'))
-		if len(selectedtables) > 1:
-			print("ok so this is joined up RELATIONSHIP display")
-		return columns
-	except sqlite3.OperationalError as e:
-		print(f"hey error of {e}")
-		if 'ambiguous' in str(e):
-			print('you need filters')
-
 
 def modify():
 	for i, table in enumerate(tables):
@@ -258,7 +179,7 @@ while True:
 		break
 	while True:
 		if action == '1':
-			if search() == backkey:
+			if search.askFields(tables) == backkey:
 				break
 		elif action == '2':
 			if modify() == backkey:
