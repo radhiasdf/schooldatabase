@@ -9,8 +9,8 @@ connect = sqlite3.connect('Database.db')
 c = connect.cursor()
 
 
-def update():
-	print("-Enter '" + backkey + "' to go back-")
+def printEnterBackKey():
+	print(f"-Enter '{backkey}' to go back-")
 
 
 # This sets the thing
@@ -41,6 +41,7 @@ def resetTables():
 	""")
 	c.execute("""
 	CREATE TABLE StudentsAndClasses (
+		ID INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 		StudentID INTEGER NOT NULL,
 		ClassID INTEGER NOT NULL,
 		FOREIGN KEY (StudentID) REFERENCES Students(ID),
@@ -94,7 +95,8 @@ def search():
 	# ask for which fields to display, and parse input. try check for valid column numbers
 	while True:
 		try:
-			selected = inp = input("enter some specific columns you want to do stuff in, eg. 2,3,6,7 (can be from different tables): ")
+			selected = inp = input("enter some specific columns in order of importance, "
+								   "eg. 5,6,7,1,2,3 for list of students based on classes: ")
 			if inp == backkey:
 				return backkey
 			columns = [columnDict[int(i)] for i in selected.split(",")]
@@ -120,6 +122,10 @@ def search():
 		INNER JOIN Teachers ON Teachers.ID = Classes.TeacherID"""
 	if fromTable == "":
 		fromTable = f"FROM {selectedtables[0]}"
+
+
+	#
+
 
 	orderBy = "ORDER BY"
 	for column in columns:
@@ -170,12 +176,29 @@ def modify():
 			elif action == '3':
 				if remove(table) == backkey:
 					break
-			printTable(table)
-
+			else:
+				break
 
 def edit(table):
 	row = input("enter which row to edit: ")
+	if row == backkey:
+		return backkey
+	try:
+		c.execute(f"PRAGMA table_info({table});")
+		columnsInfo = c.fetchall()
+		# it doesn't ask the user to put data for primary autoincrementing fields
+		headersNoID = [header[1] for i, header in enumerate(columnsInfo) if columnsInfo[i][5] != 1]
 
+		c.execute(f"SELECT * FROM {table} WHERE ID = {row};")
+		print(', '.join(str(cell) for i, cell in enumerate(c.fetchall()[0]) if columnsInfo[i][5] != 1))
+		newData = input(f"Enter new data in the format {', '.join(headersNoID)}:\n").split(',')
+		columnToValue = ''.join([f"{header} = '{newData[i]}', " for i, header in enumerate(headersNoID)])[:-2]
+
+		query = f"UPDATE {table} SET {columnToValue} WHERE ID = {row};"
+		c.execute(query)
+		printTable(table)
+	except IndexError:
+		print("row doesnt exist")
 
 def add(table):
 	c.execute(f"PRAGMA table_info({table});")
@@ -198,11 +221,23 @@ def add(table):
 							VALUES ({('?,' * len(headersNoID))[:-1]});"""
 	c.execute(query, tuple(data))
 	connect.commit()
+	printTable(table)
 
 
 def remove(table):
-	row = input("enter the row u want to remove: ")
-
+	row = input("enter the row number u want to remove: ")
+	if row == backkey:
+		return backkey
+	try:
+		c.execute(f"SELECT * FROM {table} WHERE ID = {row};")
+		removedRow = ', '.join(str(cell) for cell in c.fetchall()[0])
+		c.execute(f"DELETE FROM {table} WHERE ID = {row};")
+		printTable(table)
+		print(f"{removedRow} has been removed")
+	except sqlite3.OperationalError:
+		print("dude numbers")
+	except IndexError:
+		print("row doesnt exist")
 
 
 if reset:
@@ -217,6 +252,7 @@ AND name NOT LIKE 'sqlite_%';""")
 tables = [table[0] for table in c.fetchall()]
 
 while True:
+	printEnterBackKey()
 	action = input("hey do u want to search (1) or modify (2): ")
 	if action == backkey:
 		break
@@ -227,3 +263,5 @@ while True:
 		elif action == '2':
 			if modify() == backkey:
 				break
+		else:
+			break
